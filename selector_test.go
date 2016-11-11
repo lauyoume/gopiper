@@ -259,3 +259,50 @@ func TestHtmlJingJiang(t *testing.T) {
 	bd, _ := json.Marshal(v)
 	fmt.Println(string(bd))
 }
+
+func TestBaiduLocal(t *testing.T) {
+	req := gohttp.New()
+
+	resp, _ := req.Get("http://www.baidu.com/s?wd=采集关键词&rn=50&tn=baidulocal").End()
+
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	pipe := PipeItem{}
+	err := json.Unmarshal([]byte(`
+		{
+                "type" : "array",
+                "selector": "table td ol table",
+                "subitem": [
+                    {
+                        "type": "map",
+                        "subitem": [
+                            {
+                                "name": "title",
+                                "type" : "text",
+                                "selector" : "td > a"
+                            },
+                            {
+                                "name" : "url",
+                                "type": "href",
+                                "selector": "td a"
+                            },
+                            {
+                                "name" : "desc",
+                                "selector": "td > font|rm(font[color=\\#008000], font > a)",
+                                "type" : "text"
+                            }
+                        ]
+                    }
+                ]
+		}
+	`), &pipe)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	v, _ := (pipe.PipeBytes(body, "html"))
+	bd, _ := json.Marshal(v)
+	fmt.Println(string(bd))
+}

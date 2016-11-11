@@ -190,7 +190,7 @@ func parseHtmlSelector(s *goquery.Selection, selector string) (*goquery.Selectio
 	}
 
 	s = s.Find(subs[0])
-	exp, _ := regexp.Compile(`([a-z_]+)(\(([\w\w+]+)\))?`)
+	exp, _ := regexp.Compile(`([a-z_]+)(\(([\w\W+]+)\))?`)
 	for i := 1; i < len(subs); i++ {
 		if !exp.MatchString(subs[i]) {
 			return s, errors.New("error parse html selector: " + subs[i])
@@ -200,7 +200,7 @@ func parseHtmlSelector(s *goquery.Selection, selector string) (*goquery.Selectio
 		fn := vt[1]
 		params := ""
 		if len(vt) > 3 {
-			params = vt[3]
+			params = strings.TrimSpace(vt[3])
 		}
 
 		switch fn {
@@ -217,6 +217,10 @@ func parseHtmlSelector(s *goquery.Selection, selector string) (*goquery.Selectio
 			s = s.Last()
 		case "not":
 			s = s.Not(params)
+		case "rm":
+			if params != "" {
+				s.Find(params).Remove()
+			}
 		}
 	}
 	return s, nil
