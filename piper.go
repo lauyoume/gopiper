@@ -33,11 +33,11 @@ const (
 )
 
 type PipeItem struct {
-	Name     string     `json:"name"`
-	Selector string     `json:"selector"`
+	Name     string     `json:"name,omitempty"`
+	Selector string     `json:"selector,omitempty"`
 	Type     string     `json:"type"`
-	Filter   string     `json:"filter"`
-	SubItem  []PipeItem `json:"subitem"`
+	Filter   string     `json:"filter,omitempty"`
+	SubItem  []PipeItem `json:"subitem,omitempty"`
 }
 
 func (p *PipeItem) PipeBytes(body []byte, pagetype string) (interface{}, error) {
