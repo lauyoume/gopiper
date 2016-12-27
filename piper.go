@@ -25,6 +25,7 @@ const (
 	PT_MAP        = "map"
 	PT_ARRAY      = "array"
 	PT_JSON_VALUE = "json"
+	PT_OUT_HTML   = "outhtml"
 
 	PAGE_JSON = "json"
 	PAGE_HTML = "html"
@@ -129,6 +130,9 @@ func (p *PipeItem) pipeSelection(s *goquery.Selection) (interface{}, error) {
 	case PT_HTML:
 		html, _ := sel.Html()
 		return callFilter(html, p.Filter)
+	case PT_OUT_HTML:
+		html, _ := goquery.OuterHtml(sel)
+		return callFilter(html, p.Filter)
 	case PT_HREF, PT_IMG_SRC, PT_IMG_ALT:
 		res, has := sel.Attr(p.Type)
 		if !has {
@@ -215,8 +219,56 @@ func parseHtmlSelector(s *goquery.Selection, selector string) (*goquery.Selectio
 			s = s.First()
 		case "last":
 			s = s.Last()
+		case "siblings":
+			s = s.Siblings()
+		case "nextall":
+			s = s.NextAll()
+		case "children":
+			s = s.Children()
+		case "parent":
+			s = s.Parent()
+		case "parents":
+			s = s.Parents()
 		case "not":
-			s = s.Not(params)
+			if params != "" {
+				s = s.Not(params)
+			}
+		case "filter":
+			if params != "" {
+				s = s.Filter(params)
+			}
+		case "prevfilter":
+			if params != "" {
+				s = s.PrevFiltered(params)
+			}
+		case "prevallfilter":
+			if params != "" {
+				s = s.PrevAllFiltered(params)
+			}
+		case "nextfilter":
+			if params != "" {
+				s = s.NextFiltered(params)
+			}
+		case "nextallfilter":
+			if params != "" {
+				s = s.NextAllFiltered(params)
+			}
+		case "parentfilter":
+			if params != "" {
+				s = s.ParentFiltered(params)
+			}
+		case "parentsfilter":
+			if params != "" {
+				s = s.ParentsFiltered(params)
+			}
+		case "childrenfilter":
+			if params != "" {
+				s = s.ChildrenFiltered(params)
+			}
+		case "siblingsfilter":
+			if params != "" {
+				s = s.SiblingsFiltered(params)
+			}
 		case "rm":
 			if params != "" {
 				s.Find(params).Remove()
