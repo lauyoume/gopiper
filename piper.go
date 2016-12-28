@@ -128,10 +128,18 @@ func (p *PipeItem) pipeSelection(s *goquery.Selection) (interface{}, error) {
 	case PT_TEXT:
 		return callFilter(sel.Text(), p.Filter)
 	case PT_HTML:
-		html, _ := sel.Html()
+		html := ""
+		sel.Each(func(idx int, s1 *goquery.Selection) {
+			str, _ := s1.Html()
+			html += str
+		})
 		return callFilter(html, p.Filter)
 	case PT_OUT_HTML:
-		html, _ := goquery.OuterHtml(sel)
+		html := ""
+		sel.Each(func(idx int, s1 *goquery.Selection) {
+			str, _ := goquery.OuterHtml(s1)
+			html += str
+		})
 		return callFilter(html, p.Filter)
 	case PT_HREF, PT_IMG_SRC, PT_IMG_ALT:
 		res, has := sel.Attr(p.Type)
