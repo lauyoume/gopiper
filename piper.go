@@ -25,12 +25,14 @@ const (
 	PT_MAP        = "map"
 	PT_ARRAY      = "array"
 	PT_JSON_VALUE = "json"
+	PT_JSON_PARSE = "jsonparse"
 	PT_OUT_HTML   = "outhtml"
 
 	PAGE_JSON = "json"
 	PAGE_HTML = "html"
 	PAGE_JS   = "js"
 	PAGE_XML  = "xml"
+	PAGE_TEXT = "text"
 )
 
 type PipeItem struct {
@@ -51,16 +53,14 @@ func (p *PipeItem) PipeBytes(body []byte, pagetype string) (interface{}, error) 
 		return p.pipeSelection(doc.Selection)
 	case PAGE_JSON:
 		return p.pipeJson(body)
+	case PAGE_TEXT:
+		return p.pipeText(body)
 	}
 
 	return nil, nil
 }
 
 func (p *PipeItem) parseRegexp(body string) (interface{}, error) {
-	if p.Type != PT_TEXT {
-		return nil, errors.New("not text type")
-	}
-
 	s := p.Selector[7:]
 	exp, err := regexp.Compile(s)
 	if err != nil {
@@ -76,7 +76,42 @@ func (p *PipeItem) parseRegexp(body string) (interface{}, error) {
 		rs = sv[1]
 	}
 
-	return callFilter(rs, p.Filter)
+	switch p.Type {
+	case PT_TEXT:
+		return callFilter(rs, p.Filter)
+	case PT_TEXT_ARRAY:
+		return callFilter(sv, p.Filter)
+	case PT_JSON_PARSE:
+		if p.SubItem == nil || len(p.SubItem) <= 0 {
+			return nil, errors.New("Pipe type jsonparse need one subItem!")
+		}
+		parse_item := p.SubItem[0]
+		res, err := parse_item.pipeJson([]byte(rs))
+		if err != nil {
+			return nil, err
+		}
+		return callFilter(res, p.Filter)
+	case PT_JSON_VALUE:
+		res := map[string]interface{}{}
+		if err := json.Unmarshal([]byte(rs), &res); err != nil {
+			return nil, errors.New("not json value: " + err.Error())
+		}
+		return callFilter(res, p.Filter)
+	case PT_MAP:
+		if p.SubItem == nil || len(p.SubItem) <= 0 {
+			return nil, errors.New("Pipe type array need one subItem!")
+		}
+		res := make(map[string]interface{})
+		for _, subitem := range p.SubItem {
+			if subitem.Name == "" {
+				continue
+			}
+			res[subitem.Name], _ = subitem.pipeText([]byte(rs))
+		}
+		return callFilter(res, p.Filter)
+	}
+
+	return nil, errors.New("Not support pipe type")
 }
 
 func (p *PipeItem) pipeSelection(s *goquery.Selection) (interface{}, error) {
@@ -86,7 +121,7 @@ func (p *PipeItem) pipeSelection(s *goquery.Selection) (interface{}, error) {
 		err error
 	)
 
-	if strings.HasPrefix(p.Selector, "regexp:") && p.Type == PT_TEXT {
+	if strings.HasPrefix(p.Selector, "regexp:") {
 		body, _ := sel.Html()
 		return p.parseRegexp(body)
 	}
@@ -377,4 +412,46 @@ func (p *PipeItem) pipeJson(body []byte) (interface{}, error) {
 	}
 
 	return nil, nil
+}
+
+func (p *PipeItem) pipeText(body []byte) (interface{}, error) {
+	body_str := string(body)
+	if strings.HasPrefix(p.Selector, "regexp:") {
+		return p.parseRegexp(body_str)
+	}
+
+	switch p.Type {
+	case PT_TEXT:
+		return callFilter(body_str, p.Filter)
+	case PT_JSON_PARSE:
+		if p.SubItem == nil || len(p.SubItem) <= 0 {
+			return nil, errors.New("Pipe type jsonparse need one subItem!")
+		}
+		parse_item := p.SubItem[0]
+		res, err := parse_item.pipeJson(body)
+		if err != nil {
+			return nil, err
+		}
+		return callFilter(res, p.Filter)
+	case PT_JSON_VALUE:
+		res := map[string]interface{}{}
+		if err := json.Unmarshal(body, &res); err != nil {
+			return nil, errors.New("not json value: " + err.Error())
+		}
+		return callFilter(res, p.Filter)
+	case PT_MAP:
+		if p.SubItem == nil || len(p.SubItem) <= 0 {
+			return nil, errors.New("Pipe type array need one subItem!")
+		}
+		res := make(map[string]interface{})
+		for _, subitem := range p.SubItem {
+			if subitem.Name == "" {
+				continue
+			}
+			res[subitem.Name], _ = subitem.pipeText(body)
+		}
+		return callFilter(res, p.Filter)
+	}
+
+	return nil, errors.New("Not support pipe type")
 }
