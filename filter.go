@@ -27,6 +27,8 @@ func init() {
 	RegisterFilter("tosbc", tosbc)
 	RegisterFilter("unescape", unescape)
 	RegisterFilter("escape", escape)
+	RegisterFilter("sprintf", sprintf)
+	RegisterFilter("sprintfmap", sprintfmap)
 }
 
 type FilterFunction func(src *reflect.Value, params *reflect.Value) (interface{}, error)
@@ -248,4 +250,31 @@ func wraphtml(src *reflect.Value, params *reflect.Value) (interface{}, error) {
 	}
 
 	return src.Interface(), nil
+}
+
+func sprintf(src *reflect.Value, params *reflect.Value) (interface{}, error) {
+	if params == nil {
+		return src.Interface(), errors.New("filter split nil params")
+	}
+	return fmt.Sprintf(params.String(), src.Interface()), nil
+}
+func sprintfmap(src *reflect.Value, params *reflect.Value) (interface{}, error) {
+	if params == nil {
+		return src.Interface(), errors.New("filter split nil params")
+	}
+	msrc, ok := src.Interface().(map[string]interface{})
+	if ok == false {
+		return src.Interface(), errors.New("value is not map[string]interface{}")
+	}
+	vt := strings.Split(params.String(), ",")
+	if len(vt) <= 1 {
+		return src.Interface(), errors.New("params length must > 1")
+	}
+	p_array := []interface{}{}
+	for _, x := range vt[1:] {
+		if vm, ok := msrc[x]; ok {
+			p_array = append(p_array, vm)
+		}
+	}
+	return fmt.Sprintf(vt[0], p_array), nil
 }
