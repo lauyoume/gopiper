@@ -256,6 +256,19 @@ func sprintf(src *reflect.Value, params *reflect.Value) (interface{}, error) {
 	if params == nil {
 		return src.Interface(), errors.New("filter split nil params")
 	}
+
+	if src.Type().Kind() == reflect.Array || src.Type().Kind() == reflect.Slice {
+		count := strings.Count(params.String(), "%")
+		ret := make([]interface{}, 0)
+		for i := 0; i < src.Len(); i++ {
+			ret = append(ret, src.Index(i).Interface())
+		}
+		if len(ret) > count {
+			return fmt.Sprintf(params.String(), ret[:count]...), nil
+		}
+		return fmt.Sprintf(params.String(), ret...), nil
+	}
+
 	return fmt.Sprintf(params.String(), src.Interface()), nil
 }
 func sprintfmap(src *reflect.Value, params *reflect.Value) (interface{}, error) {
@@ -276,5 +289,5 @@ func sprintfmap(src *reflect.Value, params *reflect.Value) (interface{}, error) 
 			p_array = append(p_array, vm)
 		}
 	}
-	return fmt.Sprintf(vt[0], p_array), nil
+	return fmt.Sprintf(vt[0], p_array...), nil
 }
