@@ -221,6 +221,8 @@ func (p *PipeItem) pipeSelection(s *goquery.Selection) (interface{}, error) {
 		}
 
 		return callFilter(res, p.Filter)
+	default:
+		return callFilter(0, p.Filter)
 	}
 
 	return nil, errors.New("Not support pipe type")
@@ -409,6 +411,8 @@ func (p *PipeItem) pipeJson(body []byte) (interface{}, error) {
 		}
 
 		return callFilter(res, p.Filter)
+	default:
+		return callFilter(0, p.Filter)
 	}
 
 	return nil, nil
@@ -451,6 +455,8 @@ func (p *PipeItem) pipeText(body []byte) (interface{}, error) {
 			res[subitem.Name], _ = subitem.pipeText(body)
 		}
 		return callFilter(res, p.Filter)
+	default:
+		return callFilter(0, p.Filter)
 	}
 
 	return nil, errors.New("Not support pipe type")

@@ -41,6 +41,14 @@ func TestJsonPipe(t *testing.T) {
 					"type": "map",
 					"subitem": [
 						{
+							"name": "now",
+							"filter": "unixtime()"
+						},
+						{
+							"name": "nowmill",
+							"filter": "unixmill()"
+						},
+						{
 							"type": "text",
 							"selector": "nick",
 							"name": "nickname"

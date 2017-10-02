@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func init() {
@@ -29,6 +30,8 @@ func init() {
 	RegisterFilter("escape", escape)
 	RegisterFilter("sprintf", sprintf)
 	RegisterFilter("sprintfmap", sprintfmap)
+	RegisterFilter("unixtime", unixtime)
+	RegisterFilter("unixmill", unixmill)
 }
 
 type FilterFunction func(src *reflect.Value, params *reflect.Value) (interface{}, error)
@@ -290,4 +293,12 @@ func sprintfmap(src *reflect.Value, params *reflect.Value) (interface{}, error) 
 		}
 	}
 	return fmt.Sprintf(vt[0], p_array...), nil
+}
+
+func unixtime(src *reflect.Value, params *reflect.Value) (interface{}, error) {
+	return time.Now().Unix(), nil
+}
+
+func unixmill(src *reflect.Value, params *reflect.Value) (interface{}, error) {
+	return time.Now().UnixNano() / int64(time.Millisecond), nil
 }
