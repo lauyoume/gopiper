@@ -33,7 +33,6 @@ func init() {
 	RegisterFilter("unixtime", unixtime)
 	RegisterFilter("unixmill", unixmill)
 	RegisterFilter("paging", paging)
-
 }
 
 type FilterFunction func(src *reflect.Value, params *reflect.Value) (interface{}, error)
