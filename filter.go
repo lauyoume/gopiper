@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func init() {
@@ -29,6 +30,10 @@ func init() {
 	RegisterFilter("escape", escape)
 	RegisterFilter("sprintf", sprintf)
 	RegisterFilter("sprintfmap", sprintfmap)
+	RegisterFilter("unixtime", unixtime)
+	RegisterFilter("unixmill", unixmill)
+	RegisterFilter("paging", paging)
+
 }
 
 type FilterFunction func(src *reflect.Value, params *reflect.Value) (interface{}, error)
@@ -252,10 +257,43 @@ func wraphtml(src *reflect.Value, params *reflect.Value) (interface{}, error) {
 	return src.Interface(), nil
 }
 
+func sprintf_multi_param(src *reflect.Value, params *reflect.Value) (interface{}, error) {
+	if params == nil {
+		return src.Interface(), errors.New("filter split nil params ")
+	}
+
+	if src.Type().Kind() == reflect.Array || src.Type().Kind() == reflect.Slice {
+		count := strings.Count(params.String(), "%")
+		ret := make([]interface{}, 0)
+		for i := 0; i < src.Len(); i++ {
+			ret = append(ret, src.Index(i).Interface())
+		}
+		if len(ret) > count {
+			return fmt.Sprintf(params.String(), ret[:count]...), nil
+		}
+		return fmt.Sprintf(params.String(), ret...), nil
+	}
+
+	return fmt.Sprintf(params.String(), src.Interface()), nil
+}
 func sprintf(src *reflect.Value, params *reflect.Value) (interface{}, error) {
 	if params == nil {
 		return src.Interface(), errors.New("filter split nil params")
 	}
+	switch src.Interface().(type) {
+	case string:
+		return fmt.Sprintf(params.String(), src.String()), nil
+	case []string:
+		vt, _ := src.Interface().([]string)
+		for i := 0; i < len(vt); i++ {
+			if len(vt[i]) <= 0 {
+				continue
+			}
+			vt[i] = fmt.Sprintf(params.String(), vt[i])
+		}
+		return vt, nil
+	}
+
 	return fmt.Sprintf(params.String(), src.Interface()), nil
 }
 func sprintfmap(src *reflect.Value, params *reflect.Value) (interface{}, error) {
@@ -276,5 +314,99 @@ func sprintfmap(src *reflect.Value, params *reflect.Value) (interface{}, error) 
 			p_array = append(p_array, vm)
 		}
 	}
-	return fmt.Sprintf(vt[0], p_array), nil
+	return fmt.Sprintf(vt[0], p_array...), nil
+}
+
+func unixtime(src *reflect.Value, params *reflect.Value) (interface{}, error) {
+	return time.Now().Unix(), nil
+}
+
+func unixmill(src *reflect.Value, params *reflect.Value) (interface{}, error) {
+	return time.Now().UnixNano() / int64(time.Millisecond), nil
+}
+
+func paging(src *reflect.Value, params *reflect.Value) (interface{}, error) {
+
+	if params == nil {
+		return src.Interface(), errors.New("filter paging nil params")
+	}
+	src_type := src.Type().Kind()
+	if src_type != reflect.Slice && src_type != reflect.Array && src_type != reflect.String {
+		return src.Interface(), errors.New("value is not slice ,array or string")
+	}
+	vt := strings.Split(params.String(), ",")
+	if len(vt) < 2 {
+		return src.Interface(), errors.New("params length must > 1")
+	}
+
+	start, err := strconv.Atoi(vt[0])
+	end, err := strconv.Atoi(vt[1])
+	if err != nil {
+		return src.Interface(), errors.New("params type error:need int." + err.Error())
+	}
+
+	offset := -1
+	if len(vt) == 3 {
+		offset, err = strconv.Atoi(vt[2])
+		return src.Interface(), errors.New("params type error:need int." + err.Error())
+		if offset < 1 {
+			return src.Interface(), errors.New("offset must > 0")
+		}
+	}
+
+	var result []string
+	switch src.Interface().(type) {
+	case []interface{}:
+		{
+			vt, _ := src.Interface().([]interface{})
+			for i := start; i <= end; i++ {
+				for j := 0; j < len(vt); j++ {
+					if offset > 0 {
+						result = append(result, sprintf_replace(vt[j].(string), []string{strconv.Itoa(i * offset), strconv.Itoa((i + 1) * offset)}))
+					} else {
+						result = append(result, sprintf_replace(vt[j].(string), []string{strconv.Itoa(i)}))
+					}
+				}
+
+			}
+			return result, nil
+		}
+	case []string:
+		{
+			vt, _ := src.Interface().([]string)
+			for i := start; i <= end; i++ {
+				for j := 0; j < len(vt); j++ {
+					if offset > 0 {
+						result = append(result, sprintf_replace(vt[i], []string{strconv.Itoa(i * offset), strconv.Itoa((i + 1) * offset)}))
+					} else {
+						result = append(result, sprintf_replace(vt[i], []string{strconv.Itoa(i)}))
+					}
+				}
+
+			}
+			return result, nil
+		}
+	case string:
+		{
+			msrc1, ok := src.Interface().(string)
+			if ok == true {
+				for i := start; i <= end; i++ {
+					if offset > 0 {
+						result = append(result, sprintf_replace(msrc1, []string{strconv.Itoa(i * offset), strconv.Itoa((i + 1) * offset)}))
+					} else {
+						result = append(result, sprintf_replace(msrc1, []string{strconv.Itoa(i)}))
+					}
+				}
+				return result, nil
+			}
+		}
+	}
+	return src.Interface(), errors.New("do nothing,src type not support!")
+}
+
+func sprintf_replace(src string, param []string) string {
+	for i, _ := range param {
+		src = strings.Replace(src, "{"+strconv.Itoa(i)+"}", param[i], -1)
+	}
+	return src
 }

@@ -56,7 +56,6 @@ func (p *PipeItem) PipeBytes(body []byte, pagetype string) (interface{}, error) 
 	case PAGE_TEXT:
 		return p.pipeText(body)
 	}
-
 	return nil, nil
 }
 
@@ -110,7 +109,6 @@ func (p *PipeItem) parseRegexp(body string) (interface{}, error) {
 		}
 		return callFilter(res, p.Filter)
 	}
-
 	return nil, errors.New("Not support pipe type")
 }
 
@@ -221,6 +219,8 @@ func (p *PipeItem) pipeSelection(s *goquery.Selection) (interface{}, error) {
 		}
 
 		return callFilter(res, p.Filter)
+	default:
+		return callFilter(0, p.Filter)
 	}
 
 	return nil, errors.New("Not support pipe type")
@@ -230,7 +230,6 @@ func parseHtmlSelector(s *goquery.Selection, selector string) (*goquery.Selectio
 	if selector == "" {
 		return s, nil
 	}
-
 	subs := strings.Split(selector, "|")
 	if len(subs) < 1 {
 		return s.Find(selector), nil
@@ -409,6 +408,8 @@ func (p *PipeItem) pipeJson(body []byte) (interface{}, error) {
 		}
 
 		return callFilter(res, p.Filter)
+	default:
+		return callFilter(0, p.Filter)
 	}
 
 	return nil, nil
@@ -451,6 +452,8 @@ func (p *PipeItem) pipeText(body []byte) (interface{}, error) {
 			res[subitem.Name], _ = subitem.pipeText(body)
 		}
 		return callFilter(res, p.Filter)
+	default:
+		return callFilter(0, p.Filter)
 	}
 
 	return nil, errors.New("Not support pipe type")
