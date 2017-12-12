@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/axgle/mahonia"
-	"github.com/bitly/go-simplejson"
+	simplejson "github.com/bitly/go-simplejson"
 	"github.com/lauyoume/gohttp"
 )
 
@@ -311,6 +311,42 @@ func TestBaiduLocal(t *testing.T) {
 	}
 
 	v, _ := (pipe.PipeBytes(body, "html"))
+	bd, _ := json.Marshal(v)
+	fmt.Println(string(bd))
+}
+
+func TestTTKBPaging(t *testing.T) {
+
+	req := gohttp.New()
+
+	resp, _ := req.Get("http://r.cnews.qq.com/getSubChannels").End()
+
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	pipe := PipeItem{}
+
+	err := json.Unmarshal([]byte(`{
+		"selector": "channellist",
+		"type": "array",
+		"name": "ROOT",
+		"filter": "paging(1,2)",
+		"subitem": [
+			{
+				"name": "child",
+				"selector": "chlid",
+				"type": "text",
+				"filter": "sprintf(http://r.cnews.qq.com/getSubNewsChlidInterest?devid=860046037899335&appver=25_areading_3.3.1&chlid=%s&qn-sig=b07fe23c165c858d38f32ba972f3ccc1&qn-rid=b3f1c889-8a27-402c-9339-f87a9333546c&page={0})"
+			}
+		]
+	}`), &pipe)
+
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	v, _ := (pipe.PipeBytes(body, "json"))
 	bd, _ := json.Marshal(v)
 	fmt.Println(string(bd))
 }
