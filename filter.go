@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"html"
-	"log"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -33,6 +32,8 @@ func init() {
 	RegisterFilter("unixtime", unixtime)
 	RegisterFilter("unixmill", unixmill)
 	RegisterFilter("paging", paging)
+	RegisterFilter("quote", quote)
+	RegisterFilter("unquote", unquote)
 }
 
 type FilterFunction func(src *reflect.Value, params *reflect.Value) (interface{}, error)
@@ -69,7 +70,7 @@ func callFilter(src interface{}, value string) (interface{}, error) {
 		return src, nil
 	}
 
-	exp, _ := regexp.Compile(`([a-zA-Z0-9\-_]+)\(([\w\W]*?)\)(\||$)`)
+	exp, _ := regexp.Compile(`([a-zA-Z0-9\-_]+)(?:\(([\w\W]*?)\))?(\||$)`)
 	vt := exp.FindAllStringSubmatch(value, -1)
 
 	for _, v := range vt {
@@ -124,8 +125,7 @@ func replace(src *reflect.Value, params *reflect.Value) (interface{}, error) {
 }
 func trim(src *reflect.Value, params *reflect.Value) (interface{}, error) {
 	if params == nil {
-		log.Println(src.String())
-		return src.Interface(), errors.New("filter split nil params")
+		return src.Interface(), errors.New("filter trim nil params")
 	}
 
 	switch src.Interface().(type) {
@@ -143,11 +143,6 @@ func trim(src *reflect.Value, params *reflect.Value) (interface{}, error) {
 }
 
 func trimspace(src *reflect.Value, params *reflect.Value) (interface{}, error) {
-	if params == nil {
-		log.Println(src.String())
-		return src.Interface(), errors.New("filter split nil params")
-	}
-
 	switch src.Interface().(type) {
 	case string:
 		return strings.TrimSpace(src.String()), nil
@@ -165,6 +160,10 @@ func trimspace(src *reflect.Value, params *reflect.Value) (interface{}, error) {
 func split(src *reflect.Value, params *reflect.Value) (interface{}, error) {
 	if params == nil {
 		return src.Interface(), errors.New("filter split nil params")
+	}
+	str := strings.TrimSpace(src.String())
+	if str == "" {
+		return []string{}, nil
 	}
 	return strings.Split(src.String(), params.String()), nil
 }
@@ -408,4 +407,36 @@ func sprintf_replace(src string, param []string) string {
 		src = strings.Replace(src, "{"+strconv.Itoa(i)+"}", param[i], -1)
 	}
 	return src
+}
+
+func quote(src *reflect.Value, params *reflect.Value) (interface{}, error) {
+
+	switch src.Interface().(type) {
+	case string:
+		return strconv.Quote(src.String()), nil
+	case []string:
+		vt, _ := src.Interface().([]string)
+		for i := 0; i < len(vt); i++ {
+			vt[i] = strconv.Quote(vt[i])
+		}
+		return vt, nil
+	}
+
+	return src.Interface(), nil
+}
+
+func unquote(src *reflect.Value, params *reflect.Value) (interface{}, error) {
+
+	switch src.Interface().(type) {
+	case string:
+		return strconv.Unquote(`"` + src.String() + `"`)
+	case []string:
+		vt, _ := src.Interface().([]string)
+		for i := 0; i < len(vt); i++ {
+			vt[i], _ = strconv.Unquote(`"` + vt[i] + `"`)
+		}
+		return vt, nil
+	}
+
+	return src.Interface(), nil
 }

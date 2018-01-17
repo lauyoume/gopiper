@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"testing"
-	"time"
 
 	"github.com/axgle/mahonia"
 	simplejson "github.com/bitly/go-simplejson"
@@ -42,11 +41,11 @@ func TestJsonPipe(t *testing.T) {
 					"subitem": [
 						{
 							"name": "now",
-							"filter": "unixtime()"
+							"filter": "unixtime"
 						},
 						{
 							"name": "nowmill",
-							"filter": "unixmill()"
+							"filter": "unixmill"
 						},
 						{
 							"type": "text",
@@ -67,157 +66,175 @@ func TestJsonPipe(t *testing.T) {
 	fmt.Println(pipe.PipeBytes(body, "json"))
 }
 
-func TestHtmlPipe(t *testing.T) {
+func TestHtmlDouban(t *testing.T) {
+
+	pb := []byte(`
+{
+	"type": "map",
+	"selector": "",
+	"subitem": [
+		{
+			"type": "string",
+			"selector": "title",
+			"name": "name",
+			"filter": "trimspace|replace((豆瓣))|trim( )"
+		},
+		{
+			"type": "string",
+			"selector": "#content .gtleft a.bn-sharing//attr[data-type]",
+			"name": "fenlei"
+		},
+		{
+			"type": "string",
+			"selector": "#content .gtleft a.bn-sharing//attr[data-pic]",
+			"name": "thumbnail"
+		},
+		{
+			"type": "string-array",
+			"selector": "#info span.attrs a[rel=v\\:directedBy]",
+			"name": "direct"
+		},
+		{
+			"type": "string-array",
+			"selector": "#info span a[rel=v\\:starring]",
+			"name": "starring"
+		},
+		{
+			"type": "string-array",
+			"selector": "#info span[property=v\\:genre]",
+			"name": "type"
+		},
+		{
+			"type": "string-array",
+			"selector": "#related-pic .related-pic-bd a:not(.related-pic-video) img//attr[src]",
+			"name": "imgs",
+			"filter": "join($)|replace(albumicon,photo)|split($)"
+		},
+		{
+			"type": "string-array",
+			"selector": "#info span[property=v\\:initialReleaseDate]",
+			"name": "releasetime"
+		},
+		{
+			"type": "string",
+			"selector": "regexp:<span class=\"pl\">单集片长:</span> ([\\w\\W]+?)<br/>",
+			"name": "longtime"
+		},
+		{
+			"type": "string",
+			"selector": "regexp:<span class=\"pl\">制片国家/地区:</span> ([\\w\\W]+?)<br/>",
+			"name": "country",
+			"filter": "split(/)|trimspace"
+		},
+		{
+			"type": "string",
+			"selector": "regexp:<span class=\"pl\">语言:</span> ([\\w\\W]+?)<br/>",
+			"name": "language",
+			"filter": "split(/)|trimspace"
+		},
+		{
+			"type": "int",
+			"selector": "regexp:<span class=\"pl\">集数:</span> (\\d+)<br/>",
+			"name": "episode"
+		},
+		{
+			"type": "string",
+			"selector": "regexp:<span class=\"pl\">又名:</span> ([\\w\\W]+?)<br/>",
+			"name": "alias",
+			"filter": "split(/)|trimspace"
+		},
+		{
+			"type": "string",
+			"selector": "#link-report span.hidden, #link-report span[property=v\\:summary]|last",
+			"name": "brief",
+			"filter": "trimspace|split(\n)|trimspace|wraphtml(p)|join"
+		},
+		{
+			"type": "float",
+			"selector": "#interest_sectl .rating_num",
+			"name": "score"
+		},
+		{
+			"type": "string",
+			"selector": "#content h1 span.year",
+			"name": "year",
+			"filter": "replace(()|replace())|intval"
+		},
+		{
+			"type": "string",
+			"selector": "#comments-section > .mod-hd h2 a",
+			"name": "comment",
+			"filter": "replace(全部)|replace(条)|trimspace|intval"
+		}
+	]
+}
+`)
 
 	log.Println(callFilter("美团他|女神||", `preadd(AAAA)|split(|)|join(,)`))
-	req := gohttp.New()
-
-	resp, _ := req.Get("http://movie.douban.com/subject/25850640/").End()
-
-	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
-
-	//resp2, errs := req.Get("http://movie.douban.com/subject/1306784/?from=tag_all").End()
-	//resp2, errs := req.Get("http://movie.douban.com/subject/26087497/").End()
-	//resp2, errs := req.Get("http://movie.douban.com/subject/25723907/").End()
-	//resp2, errs := req.Get("http://movie.douban.com/subject/4014396/").End()
-	resp2, errs := req.Get("http://movie.douban.com/subject/2035218/?from=tag_all").End()
-
-	if errs != nil {
-		log.Println("hahah")
-		log.Println(errs)
-		return
+	if val, err := test_piper("http://movie.douban.com/subject/25850640/", "html", pb); err != nil {
+		t.Fatal(err)
+	} else {
+		showjson(val)
 	}
 
-	defer resp2.Body.Close()
-	timer := time.AfterFunc(time.Millisecond*100, func() {
-		resp2.Body.Close()
-	})
-	body2, err := ioutil.ReadAll(resp2.Body)
-
-	if err != nil {
-		log.Println(err)
-		return
+	if val, err := test_piper("http://movie.douban.com/subject/2035218/?from=tag_all", "html", pb); err != nil {
+		t.Fatal(err)
+	} else {
+		showjson(val)
 	}
-	timer.Stop()
 
+}
+
+func test_piper(u string, tp string, pb []byte, headers ...string) (interface{}, error) {
 	pipe := PipeItem{}
-	err = json.Unmarshal([]byte(`
-		{
-			"type": "map",
-			"selector": "",
-			"subitem": [
-						{
-							"type": "text",
-							"selector": "title",
-							"name": "name",
-							"filter": "trim(\n)|replace((豆瓣))|trim( )"
-						},
-						{
-							"type": "attr[data-type]",
-							"selector": "#content .gtleft a.bn-sharing",
-							"name": "fenlei"
-						},
-						{
-							"type": "attr[data-pic]",
-							"selector": "#content .gtleft a.bn-sharing",
-							"name": "thumbnail"
-						},
-						{
-							"type": "text-array",
-							"selector": "#info span.attrs a[rel=v\\:directedBy]",
-							"name": "direct"
-						},
-						{
-							"type": "text-array",
-							"selector": "#info span a[rel=v\\:starring]",
-							"name": "starring"
-						},
-						{
-							"type": "text-array",
-							"selector": "#info span[property=v\\:genre]",
-							"name": "type"
-						},
-						{
-							"type": "attr-array[src]",
-							"selector": "#related-pic .related-pic-bd a:not(.related-pic-video) img",
-							"name": "imgs",
-							"filter": "join($)|replace(albumicon,photo)|split($)"
-						},
-						{
-							"type": "text-array",
-							"selector": "#info span[property=v\\:initialReleaseDate]",
-							"name": "releasetime"
-						},
-						{
-							"type": "text",
-							"selector": "#info span[property=v\\:runtime]",
-							"name": "longtime"
-						},
-						{
-							"type": "text",
-							"selector": "regexp:<span class=\"pl\">制片国家/地区:</span> ([\\w\\W]+?)<br/>",
-							"name": "country",
-							"filter": "split(/)|trim( )"
-						},
-						{
-							"type": "text",
-							"selector": "regexp:<span class=\"pl\">语言:</span> ([\\w\\W]+?)<br/>",
-							"name": "language",
-							"filter": "split(/)|trim( )"
-						},
-						{
-							"type": "text",
-							"selector": "regexp:<span class=\"pl\">集数:</span> (\\d+)<br/>",
-							"name": "episode",
-							"filter": "intval()"
-						},
-						{
-							"type": "text",
-							"selector": "regexp:<span class=\"pl\">又名:</span> ([\\w\\W]+?)<br/>",
-							"name": "alias",
-							"filter": "split(/)|trim( )"
-						},
-			    		{
-			    			"type": "text",
-							"selector": "#link-report span.hidden, #link-report span[property=v\\:summary]|last",
-			    			"name": "brief",
-			    			"filter": "trim(\n )|split(\n)|trim( )|wraphtml(p)|join()"
-			    		},
-						{
-							"type": "text",
-							"selector": "#interest_sectl .rating_num",
-							"name": "score",
-							"filter": "floatval()"
-						},
-						{
-							"type": "text",
-							"selector": "#content h1 span.year",
-							"name": "year",
-							"filter": "replace(()|replace())|intval()"
-						},
-						{
-							"type": "text",
-							"selector": "#comments-section > .mod-hd h2 a",
-							"name": "comment",
-							"filter": "replace(全部)|replace(条)|trim( )|intval()"
-						}
-			]
-		}
-	`), &pipe)
+	err := json.Unmarshal(pb, &pipe)
+
 	if err != nil {
-		log.Println(err)
-		return
+		return nil, err
 	}
 
-	fmt.Println(pipe.PipeBytes(body, "html"))
-	v, _ := (pipe.PipeBytes(body2, "html"))
-	bd, _ := json.Marshal(v)
+	req := gohttp.New()
+	req.Get(u)
+	for idx := 0; idx < len(headers); idx += 2 {
+		req.Set(headers[idx], headers[idx+1])
+	}
+	req.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36")
+	body, _, err := req.Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	return pipe.PipeBytes(body, tp)
+}
+
+func showjson(val interface{}) {
+	bd, _ := json.MarshalIndent(val, "", "    ")
 	fmt.Println(string(bd))
 }
 
-func TestHtmlJingJiang(t *testing.T) {
+func TestBaidu(t *testing.T) {
+	pb := []byte(`
+		{
+			"type": "jsonparse",
+			"selector": "regexp:runtime\\.modsData\\.userData = (\\{(?:.+?)\\});",
+			"subitem": [
+				{
+					"type": "json",
+					"selector": "user"
+				}
+			]
+		}
+	`)
+	val, err := test_piper("https://author.baidu.com/profile?context={%22app_id%22:%221567569757829059%22}&cmdType=&pagelets[]=root&reqID=0&ispeed=1", "text", pb, "Cookie", "BAIDUID=D0FB1501E11F72B20AEC00CED2C220D5:FG=1")
+	if err != nil {
+		t.Fatal(err)
+		return
+	} else {
+		showjson(val)
+	}
+}
 
+func TestHtmlJingJiang(t *testing.T) {
 	req := gohttp.New()
 
 	resp, _ := req.Get("http://www.jjwxc.net/bookbase_slave.php?submit=&booktype=&opt=&page=3&endstr=&orderstr=4").End()
